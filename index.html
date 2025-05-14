@@ -1,0 +1,442 @@
+<!DOCTYPE html><html><head><meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Counting Sheep</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;700&amp;display=swap" rel="stylesheet">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #f0f8ff;
+            font-family: 'Quicksand', sans-serif;
+            overflow: hidden;
+            touch-action: manipulation;
+        }
+        
+        #canvas-container {
+            width: 100%;
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: center;
+            position: relative;
+        }
+        
+        .controls {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 10px;
+            z-index: 100;
+        }
+        
+        button {
+            background-color: rgba(255, 255, 255, 0.7);
+            border: 2px solid #8b4513;
+            border-radius: 20px;
+            padding: 8px 15px;
+            font-family: 'Quicksand', sans-serif;
+            font-weight: bold;
+            color: #5a3921;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        button:hover {
+            background-color: rgba(255, 255, 255, 0.9);
+        }
+        
+        .counter {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            font-size: 24px;
+            color: #5a3921;
+            background-color: rgba(255, 255, 255, 0.7);
+            padding: 10px 15px;
+            border-radius: 10px;
+            border: 2px solid #8b4513;
+        }
+        
+        .title {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            font-size: 24px;
+            color: #5a3921;
+            background-color: rgba(255, 255, 255, 0.7);
+            padding: 10px 15px;
+            border-radius: 10px;
+            border: 2px solid #8b4513;
+        }
+    </style>
+
+<base target="_self">
+
+
+    </head><body><div id="canvas-container"></div>
+    <div class="title">Counting Sheep</div>
+    <div class="counter">Sheep: 0</div>
+    <div class="controls">
+        <button id="speed-btn">Speed: Normal</button>
+        <button id="theme-btn">Day</button>
+        <button id="relax-btn">Relax Mode: Off</button>
+    </div>
+
+    <script>
+        let sheep = [];
+        let fenceHeight = 100;
+        let speed = 1;
+        let count = 0;
+        let isDay = true;
+        let relaxMode = false;
+        let groundHeight;
+        let sunY = 100;
+        let stars = [];
+        let clouds = [];
+        
+        function setup() {
+            let canvas = createCanvas(windowWidth, windowHeight * 0.8);
+            canvas.parent('canvas-container');
+            
+            groundHeight = height * 0.7;
+            fenceHeight = height * 0.15;
+            
+            // Create initial sheep
+            for (let i = 0; i < 3; i++) {
+                addSheep(random(width * 0.2, width * 0.8));
+            }
+            
+            // Create stars for night mode
+            for (let i = 0; i < 100; i++) {
+                stars.push({
+                    x: random(width),
+                    y: random(height * 0.6),
+                    size: random(1, 3),
+                    twinkle: random(0.5, 1.5)
+                });
+            }
+            
+            // Create clouds
+            for (let i = 0; i < 5; i++) {
+                clouds.push({
+                    x: random(width),
+                    y: random(height * 0.3),
+                    speed: random(0.2, 0.5),
+                    size: random(50, 120)
+                });
+            }
+            
+            // Setup buttons
+            select('#speed-btn').mousePressed(toggleSpeed);
+            select('#theme-btn').mousePressed(toggleTheme);
+            select('#relax-btn').mousePressed(toggleRelaxMode);
+            
+            // Prevent context menu on canvas
+            canvas.elt.addEventListener('contextmenu', (e) => {
+                e.preventDefault();
+            });
+        }
+        
+        function draw() {
+            // Set background based on time of day
+            if (isDay) {
+                background(135, 206, 235); // Sky blue
+            } else {
+                background(25, 25, 112); // Midnight blue
+            }
+            
+            // Draw sun/moon
+            drawSunMoon();
+            
+            // Draw clouds
+            drawClouds();
+            
+            // Draw ground
+            drawGround();
+            
+            // Draw fence
+            drawFence();
+            
+            // Update and draw sheep
+            updateSheep();
+            
+            // Draw stars if night
+            if (!isDay) {
+                drawStars();
+            }
+            
+            // Update counter display
+            select('.counter').html(`Sheep: ${count}`);
+        }
+        
+        function drawSunMoon() {
+            push();
+            if (isDay) {
+                fill(255, 255, 0); // Yellow sun
+                noStroke();
+                ellipse(width * 0.8, sunY, 80, 80);
+                
+                // Animate sun
+                sunY += 0.05 * speed;
+                if (sunY > height * 0.4) sunY = height * 0.4;
+            } else {
+                fill(220, 220, 220); // Gray moon
+                noStroke();
+                ellipse(width * 0.8, sunY, 60, 60);
+                
+                // Moon phases (crescent)
+                fill(25, 25, 112);
+                ellipse(width * 0.8 + 15, sunY, 60, 60);
+            }
+            pop();
+        }
+        
+        function drawStars() {
+            push();
+            fill(255, 255, 255);
+            noStroke();
+            for (let star of stars) {
+                let twinkleFactor = sin(frameCount * 0.05 * star.twinkle) * 0.5 + 0.5;
+                let alpha = map(twinkleFactor, 0, 1, 100, 255);
+                fill(255, 255, 255, alpha);
+                ellipse(star.x, star.y, star.size, star.size);
+            }
+            pop();
+        }
+        
+        function drawClouds() {
+            push();
+            fill(255, 255, 255, 200);
+            noStroke();
+            for (let cloud of clouds) {
+                // Update position
+                cloud.x += cloud.speed * speed;
+                if (cloud.x > width + cloud.size) {
+                    cloud.x = -cloud.size;
+                }
+                
+                // Draw cloud as multiple circles
+                for (let i = 0; i < 3; i++) {
+                    ellipse(
+                        cloud.x + i * cloud.size * 0.3, 
+                        cloud.y, 
+                        cloud.size * 0.8, 
+                        cloud.size * 0.6
+                    );
+                }
+            }
+            pop();
+        }
+        
+        function drawGround() {
+            push();
+            // Grass
+            fill(34, 139, 34);
+            noStroke();
+            rect(0, groundHeight, width, height - groundHeight);
+            
+            // Grass details
+            fill(50, 205, 50);
+            for (let x = 0; x < width; x += 20) {
+                let bladeHeight = random(5, 15);
+                triangle(
+                    x, groundHeight,
+                    x + 5, groundHeight,
+                    x + 2.5, groundHeight - bladeHeight
+                );
+            }
+            pop();
+        }
+        
+        function drawFence() {
+            push();
+            // Fence posts
+            fill(139, 69, 19); // Brown
+            stroke(101, 67, 33);
+            strokeWeight(2);
+            
+            let postSpacing = width / 15;
+            for (let x = 0; x < width; x += postSpacing) {
+                // Post
+                rect(x - 5, groundHeight - fenceHeight, 10, fenceHeight);
+                
+                // Top rail
+                if (x > 0) {
+                    line(x - postSpacing, groundHeight - fenceHeight + 10, x, groundHeight - fenceHeight + 10);
+                }
+                
+                // Middle rail
+                if (x > 0) {
+                    line(x - postSpacing, groundHeight - fenceHeight * 0.5, x, groundHeight - fenceHeight * 0.5);
+                }
+            }
+            pop();
+        }
+        
+        function addSheep(xPos) {
+            sheep.push({
+                x: xPos,
+                y: groundHeight - 30,
+                size: random(40, 60),
+                jumpHeight: 0,
+                isJumping: false,
+                jumpProgress: 0,
+                speed: random(0.5, 1.5),
+                color: color(255, 255, 255),
+                direction: random([-1, 1])
+            });
+        }
+        
+        function updateSheep() {
+            for (let i = sheep.length - 1; i >= 0; i--) {
+                let s = sheep[i];
+                
+                // Move sheep
+                s.x += s.speed * speed * s.direction;
+                
+                // Change direction at edges
+                if (s.x < 0 || s.x > width) {
+                    s.direction *= -1;
+                }
+                
+                // Random chance to start jumping
+                if (!s.isJumping && random() < 0.005 * speed && !relaxMode) {
+                    s.isJumping = true;
+                    s.jumpProgress = 0;
+                }
+                
+                // Handle jumping
+                if (s.isJumping) {
+                    s.jumpProgress += 0.02 * speed;
+                    if (s.jumpProgress >= 1) {
+                        s.isJumping = false;
+                        count++;
+                    } else {
+                        // Parabolic jump curve
+                        s.jumpHeight = sin(s.jumpProgress * PI) * fenceHeight * 1.2;
+                    }
+                } else {
+                    s.jumpHeight = 0;
+                }
+                
+                // Draw sheep
+                drawSheep(s);
+                
+                // Remove sheep that go off screen in relax mode
+                if (relaxMode && (s.x < -s.size || s.x > width + s.size)) {
+                    sheep.splice(i, 1);
+                }
+            }
+            
+            // Add new sheep occasionally in relax mode
+            if (relaxMode && random() < 0.01 && sheep.length < 10) {
+                if (random() < 0.5) {
+                    addSheep(-50);
+                } else {
+                    addSheep(width + 50);
+                }
+            }
+        }
+        
+        function drawSheep(s) {
+            push();
+            translate(s.x, s.y - s.jumpHeight);
+            
+            // Body
+            noStroke();
+            fill(s.color);
+            ellipse(0, 0, s.size, s.size * 0.8);
+            
+            // Head
+            ellipse(s.size * 0.3 * s.direction, -s.size * 0.2, s.size * 0.5, s.size * 0.4);
+            
+            // Legs
+            fill(255);
+            rect(-s.size * 0.2, s.size * 0.3, s.size * 0.1, s.size * 0.3);
+            rect(s.size * 0.1, s.size * 0.3, s.size * 0.1, s.size * 0.3);
+            
+            // Eyes
+            fill(0);
+            ellipse(
+                s.size * 0.35 * s.direction, 
+                -s.size * 0.25, 
+                s.size * 0.05, 
+                s.size * 0.05
+            );
+            
+            // Ears
+            fill(255);
+            triangle(
+                s.size * 0.4 * s.direction, -s.size * 0.35,
+                s.size * 0.3 * s.direction, -s.size * 0.45,
+                s.size * 0.2 * s.direction, -s.size * 0.35
+            );
+            
+            // Wool texture
+            fill(255, 255, 255, 100);
+            for (let a = 0; a < TWO_PI; a += PI / 4) {
+                let woolX = cos(a) * s.size * 0.4;
+                let woolY = sin(a) * s.size * 0.3;
+                ellipse(woolX, woolY, s.size * 0.2, s.size * 0.2);
+            }
+            
+            pop();
+        }
+        
+        function mousePressed() {
+            if (mouseButton === LEFT) {
+                // Add a new sheep where clicked
+                addSheep(mouseX);
+            }
+        }
+        
+        function toggleSpeed() {
+            if (speed === 1) {
+                speed = 2;
+                select('#speed-btn').html('Speed: Fast');
+            } else if (speed === 2) {
+                speed = 0.5;
+                select('#speed-btn').html('Speed: Slow');
+            } else {
+                speed = 1;
+                select('#speed-btn').html('Speed: Normal');
+            }
+        }
+        
+        function toggleTheme() {
+            isDay = !isDay;
+            select('#theme-btn').html(isDay ? 'Day' : 'Night');
+        }
+        
+        function toggleRelaxMode() {
+            relaxMode = !relaxMode;
+            select('#relax-btn').html(relaxMode ? 'Relax Mode: On' : 'Relax Mode: Off');
+            
+            if (relaxMode) {
+                // Clear existing sheep
+                sheep = [];
+                
+                // Add sheep from both sides
+                for (let i = 0; i < 3; i++) {
+                    addSheep(random(-100, 0));
+                    addSheep(random(width, width + 100));
+                }
+            }
+        }
+        
+        function windowResized() {
+            resizeCanvas(windowWidth, windowHeight * 0.8);
+            groundHeight = height * 0.7;
+            fenceHeight = height * 0.15;
+        }
+    </script>
+
+              
+          
+                
+          
+              
+</body></html>
